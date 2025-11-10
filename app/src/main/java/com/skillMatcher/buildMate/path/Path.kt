@@ -1,4 +1,6 @@
 package com.skillMatcher.buildMate.path
 
+import com.skillMatcher.buildMate.BuildConfig
+
 const val User_Path = "Users"
-const val Gemini_Api_Key = "AIzaSyAP1TQdFYMDT5BAcx4Lwr0H7EwLNZNMEc8"
+val Gemini_Api_Key: String = BuildConfig.GEMINI_API_KEY

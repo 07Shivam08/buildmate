@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.File
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,6 +9,18 @@ plugins {
     id("com.google.dagger.hilt.android") version "2.57.2"
     kotlin("plugin.serialization") version "2.2.21"
     alias(libs.plugins.google.gms.google.services)
+}
+
+// Load .env file
+val envFile = File(rootDir, ".env")
+val envProperties = Properties()
+if (envFile.exists()) {
+    envProperties.load(envFile.inputStream())
+}
+
+// Helper function to get env variable
+fun getEnvVariable(key: String, default: String = "missing_key"): String {
+    return envProperties.getProperty(key) ?: System.getenv(key) ?: default
 }
 
 android {
@@ -20,6 +35,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Read Gemini API Key from .env file
+        val geminiApiKey = getEnvVariable("GEMINI_API_KEY")
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
     buildTypes {
@@ -41,6 +60,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
