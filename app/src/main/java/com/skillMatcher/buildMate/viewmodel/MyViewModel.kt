@@ -14,6 +14,10 @@ import com.skillMatcher.buildMate.domain.usecases.GenerateIdeaUseCase
 import com.skillMatcher.buildMate.domain.usecases.LoginUserUseCase
 import com.skillMatcher.buildMate.domain.usecases.SignOutUseCase
 import com.skillMatcher.buildMate.domain.usecases.UpdateUserUseCase
+import com.skillMatcher.buildMate.domain.usecases.SaveSkillUseCase
+import com.skillMatcher.buildMate.domain.usecases.SaveIdeaUseCase
+import com.skillMatcher.buildMate.domain.usecases.FetchAllIdeasUseCase
+import com.skillMatcher.buildMate.domain.usecases.FetchIdeaByIdUseCase
 import com.skillMatcher.buildMate.domain.repo.IdeaRepository
 import com.skillMatcher.buildMate.utils.ResultState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,6 +37,10 @@ class MyViewModel @Inject constructor(
     private val updateUserUseCase: UpdateUserUseCase,
     private val deleteAccountUseCase: DeleteAccountUseCase,
     private val generateIdeaUseCase: GenerateIdeaUseCase,
+    private val saveSkillUseCase: SaveSkillUseCase,
+    private val saveIdeaUseCase: SaveIdeaUseCase,
+    private val fetchAllIdeasUseCase: FetchAllIdeasUseCase,
+    private val fetchIdeaByIdUseCase: FetchIdeaByIdUseCase,
     private val userSkillDao: UserSkillDao,
     private val ideaRepository: IdeaRepository
 ) : ViewModel() {
@@ -203,207 +211,239 @@ class MyViewModel @Inject constructor(
         }
     }
 
-    // ==================== SKILL & IDEA MANAGEMENT ====================
+    // ==================== SKILL MANAGEMENT ====================
 
+    private val _saveSkillState = MutableStateFlow(SaveSkillState())
+    val saveSkillState = _saveSkillState.asStateFlow()
 
-    
-    private val _lastGeneratedIdeaId = MutableStateFlow(-1)
-    val lastGeneratedIdeaId = _lastGeneratedIdeaId.asStateFlow()
-    
-    private val _currentIdea = MutableStateFlow<IdeaEntity?>(null)
-    val currentIdea = _currentIdea.asStateFlow()
+    fun saveSkill(skill: UserSkillEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _saveSkillState.value = SaveSkillState(isLoading = true)
+                android.util.Log.d("MyViewModel", "Saving skill: ${skill.techStack}")
+
+                val savedId = saveSkillUseCase.saveSkillUseCase(skill)
+                val skillWithId = skill.copy(skillId = savedId.toInt())
+
+                _saveSkillState.value = SaveSkillState(
+                    isLoading = false,
+                    isSuccess = skillWithId,
+                    isError = null
+                )
+
+                android.util.Log.d("MyViewModel", "Skill saved with ID: $savedId")
+                
+                // Auto-generate ideas for this skill
+                generateIdeas(skillWithId)
+                
+            } catch (e: Exception) {
+                android.util.Log.e("MyViewModel", "Error saving skill", e)
+                _saveSkillState.value = SaveSkillState(
+                    isLoading = false,
+                    isSuccess = null,
+                    isError = e.message ?: "Failed to save skill"
+                )
+            }
+        }
+    }
+
+    // ==================== IDEA GENERATION & MANAGEMENT ====================
 
     private val _generateIdeaState = MutableStateFlow(GenerateIdeaState())
     val generateIdeaState = _generateIdeaState.asStateFlow()
+
+    private val _currentIdea = MutableStateFlow<IdeaEntity?>(null)
+    val currentIdea = _currentIdea.asStateFlow()
+
     fun generateIdeas(skill: UserSkillEntity) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Set loading state
-                android.util.Log.d("MyViewModel", "Starting generateIdeas for skill: ${skill.skillId}")
-                _generateIdeaState.value = GenerateIdeaState(isLoading = true, isError = null)
-                
-                // Call use case (it handles its own dispatcher)
+                _generateIdeaState.value = GenerateIdeaState(isLoading = true)
+                android.util.Log.d("MyViewModel", "Generating ideas for skill: ${skill.techStack}")
+
                 val result = generateIdeaUseCase(skill)
-                
-                // Handle result based on type
+
                 when (result) {
-                    is ResultState.Loading -> {
-                        android.util.Log.d("MyViewModel", "Result.Loading received")
-                        _generateIdeaState.value = GenerateIdeaState(isLoading = true, isError = null)
-                    }
                     is ResultState.Success -> {
-                        // Validate we got ideas
-                        android.util.Log.d("MyViewModel", "Result.Success received with ${result.data.size} ideas")
                         if (result.data.isNotEmpty()) {
-                            android.util.Log.d("MyViewModel", "Setting state with ${result.data.size} ideas")
                             _generateIdeaState.value = GenerateIdeaState(
                                 isLoading = false,
                                 isSuccess = result.data,
                                 isError = null
                             )
                             
-                            // Save the first idea immediately to database
+                            // Save first idea to database
                             val firstIdea = result.data.first()
-                            android.util.Log.d("MyViewModel", "Saving idea: ${firstIdea.ideaTitle}")
-                            try {
-                                val savedId = ideaRepository.saveIdea(firstIdea)
-                                // Set the current idea with the actual saved ID
-                                val ideaWithId = firstIdea.copy(ideaId = savedId.toInt())
-                                _currentIdea.value = ideaWithId
-                                _lastGeneratedIdeaId.value = savedId.toInt()
-                                
-                                // IMPORTANT: Add to _allIdeas list so it appears in GetAllIdeaScreen
-                                val currentList = _allIdeas.value.toMutableList()
-                                currentList.add(0, ideaWithId) // Add to the beginning (newest first)
-                                _allIdeas.value = currentList
-                                
-                                android.util.Log.d("MyViewModel", "Idea saved with ID: $savedId and added to allIdeas list")
-                            } catch (e: Exception) {
-                                android.util.Log.e("MyViewModel", "Error saving idea", e)
-                            }
+                            val savedId = saveIdeaUseCase.saveIdeaUseCase(firstIdea)
+                            val ideaWithId = firstIdea.copy(ideaId = savedId.toInt())
                             
-                            android.util.Log.d("MyViewModel", "State updated: ${_generateIdeaState.value.isSuccess?.size} ideas in state")
+                            _currentIdea.value = ideaWithId
+                            
+                            // Add to all ideas list
+                            val currentList = _allIdeas.value.toMutableList()
+                            currentList.add(0, ideaWithId)
+                            _allIdeas.value = currentList
+                            
+                            android.util.Log.d("MyViewModel", "Ideas generated and saved: ${result.data.size}")
                         } else {
-                            android.util.Log.d("MyViewModel", "No ideas in result")
                             _generateIdeaState.value = GenerateIdeaState(
                                 isLoading = false,
                                 isSuccess = null,
-                                isError = "No ideas were generated. Please try with different inputs."
+                                isError = "No ideas generated. Try different inputs."
                             )
                         }
                     }
                     is ResultState.Error -> {
-                        android.util.Log.d("MyViewModel", "Result.Error: ${result.message}")
                         _generateIdeaState.value = GenerateIdeaState(
                             isLoading = false,
                             isSuccess = null,
                             isError = result.message
                         )
                     }
+                    is ResultState.Loading -> {
+                        _generateIdeaState.value = GenerateIdeaState(isLoading = true)
+                    }
                 }
             } catch (e: Exception) {
-                // Catch any unhandled exceptions
-                android.util.Log.e("MyViewModel", "Exception in generateIdeas", e)
+                android.util.Log.e("MyViewModel", "Exception generating ideas", e)
                 _generateIdeaState.value = GenerateIdeaState(
                     isLoading = false,
                     isSuccess = null,
-                    isError = e.message ?: "An unexpected error occurred"
+                    isError = e.message ?: "Error generating ideas"
                 )
             }
         }
     }
 
-    fun insertSkill(skill: UserSkillEntity) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                android.util.Log.d("MyViewModel", "Inserting skill...")
-                val savedId = userSkillDao.insertUserSkill(skill)
-                
-                // Create skill with actual saved ID
-                val skillWithId = skill.copy(skillId = savedId.toInt())
-                android.util.Log.d("MyViewModel", "Skill saved with ID: $savedId, now generating ideas...")
-                
-                // Now generate ideas with the skill that has the correct ID
-                generateIdeas(skillWithId)
-            } catch (e: Exception) {
-                // Log error but don't crash
-                android.util.Log.e("MyViewModel", "Error saving skill", e)
-                _generateIdeaState.value = GenerateIdeaState(
-                    isLoading = false,
-                    isSuccess = null,
-                    isError = "Failed to save skill: ${e.message}"
-                )
-            }
-        }
-    }
-
-    fun resetIdeaState() {
+    fun resetGenerateIdeaState() {
         _generateIdeaState.value = GenerateIdeaState()
     }
 
+    // ==================== SAVE IDEA MANAGEMENT ====================
+
+    private val _saveIdeaState = MutableStateFlow(SaveIdeaState())
+    val saveIdeaState = _saveIdeaState.asStateFlow()
+
     fun saveIdea(idea: IdeaEntity) {
-        viewModelScope.launch(Dispatchers.Main) {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val savedId = ideaRepository.saveIdea(idea)
-                android.util.Log.d("MyViewModel", "Idea saved from UI with ID: $savedId")
-                
-                // Add the newly saved idea to the _allIdeas list
-                val currentList = _allIdeas.value.toMutableList()
+                _saveIdeaState.value = SaveIdeaState(isLoading = true)
+                android.util.Log.d("MyViewModel", "Saving idea: ${idea.ideaTitle}")
+
+                val savedId = saveIdeaUseCase.saveIdeaUseCase(idea)
                 val ideaWithId = idea.copy(ideaId = savedId.toInt())
-                currentList.add(0, ideaWithId) // Add to the beginning (newest first)
-                _allIdeas.value = currentList
+
+                _saveIdeaState.value = SaveIdeaState(
+                    isLoading = false,
+                    isSuccess = ideaWithId,
+                    isError = null
+                )
+
+                // Add to all ideas list
+                val currentList = _allIdeas.value.toMutableList()
+                if (!currentList.any { it.ideaId == savedId.toInt() }) {
+                    currentList.add(0, ideaWithId)
+                    _allIdeas.value = currentList
+                }
+
+                android.util.Log.d("MyViewModel", "Idea saved with ID: $savedId")
                 
-                android.util.Log.d("MyViewModel", "Updated allIdeas list with newly saved idea")
             } catch (e: Exception) {
-                // Log error but don't crash
-                android.util.Log.e("MyViewModel", "Error saving idea from UI", e)
-                _generateIdeaState.value = GenerateIdeaState(
+                android.util.Log.e("MyViewModel", "Error saving idea", e)
+                _saveIdeaState.value = SaveIdeaState(
                     isLoading = false,
                     isSuccess = null,
-                    isError = "Failed to save idea: ${e.message}"
+                    isError = e.message ?: "Failed to save idea"
                 )
             }
         }
     }
 
+    // ==================== FETCH IDEA BY ID MANAGEMENT ====================
+
+    private val _fetchIdeaByIdState = MutableStateFlow(FetchIdeaByIdState())
+    val fetchIdeaByIdState = _fetchIdeaByIdState.asStateFlow()
+
     fun fetchIdeaById(userId: String, ideaId: Int) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                android.util.Log.d("MyViewModel", "Fetching idea with ID: $ideaId for user: $userId")
-                val ideas = ideaRepository.getIdeasByIdeaId(userId, ideaId)
+                _fetchIdeaByIdState.value = FetchIdeaByIdState(isLoading = true)
+                android.util.Log.d("MyViewModel", "Fetching idea ID: $ideaId")
+
+                val ideas = fetchIdeaByIdUseCase.fetchIdeaByIdUseCase(userId, ideaId)
+
                 if (ideas.isNotEmpty()) {
+                    _fetchIdeaByIdState.value = FetchIdeaByIdState(
+                        isLoading = false,
+                        isSuccess = ideas.first(),
+                        isError = null
+                    )
                     _currentIdea.value = ideas.first()
                     android.util.Log.d("MyViewModel", "Idea fetched: ${ideas.first().ideaTitle}")
                 } else {
-                    android.util.Log.d("MyViewModel", "No idea found with ID: $ideaId")
+                    _fetchIdeaByIdState.value = FetchIdeaByIdState(
+                        isLoading = false,
+                        isSuccess = null,
+                        isError = "Idea not found"
+                    )
                 }
             } catch (e: Exception) {
                 android.util.Log.e("MyViewModel", "Error fetching idea", e)
+                _fetchIdeaByIdState.value = FetchIdeaByIdState(
+                    isLoading = false,
+                    isSuccess = null,
+                    isError = e.message ?: "Failed to fetch idea"
+                )
             }
         }
     }
 
-    // ==================== ALL IDEAS MANAGEMENT ====================
+    // ==================== FETCH ALL IDEAS MANAGEMENT ====================
+
+    private val _fetchAllIdeasState = MutableStateFlow(FetchAllIdeasState())
+    val fetchAllIdeasState = _fetchAllIdeasState.asStateFlow()
 
     private val _allIdeas = MutableStateFlow<List<IdeaEntity>>(emptyList())
     val allIdeas = _allIdeas.asStateFlow()
 
-    private val _allIdeasLoading = MutableStateFlow(false)
-    val allIdeasLoading = _allIdeasLoading.asStateFlow()
-
-    private val _allIdeasError = MutableStateFlow<String?>(null)
-    val allIdeasError = _allIdeasError.asStateFlow()
-
     fun fetchAllIdeas(userId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                _allIdeasLoading.value = true
-                _allIdeasError.value = null
+                _fetchAllIdeasState.value = FetchAllIdeasState(isLoading = true)
                 android.util.Log.d("MyViewModel", "Fetching all ideas for user: $userId")
-                
+
                 val ideas = ideaRepository.getAllIdeas(userId)
-                // Sort by createdAt descending (newest first)
-                _allIdeas.value = ideas.sortedByDescending { it.createdAt }
-                
+                val sortedIdeas = ideas.sortedByDescending { it.createdAt }
+
+                _fetchAllIdeasState.value = FetchAllIdeasState(
+                    isLoading = false,
+                    isSuccess = sortedIdeas,
+                    isError = null
+                )
+                _allIdeas.value = sortedIdeas
+
                 android.util.Log.d("MyViewModel", "Fetched ${ideas.size} ideas")
-                _allIdeasLoading.value = false
+                
             } catch (e: Exception) {
                 android.util.Log.e("MyViewModel", "Error fetching all ideas", e)
-                _allIdeasError.value = e.message ?: "Error loading ideas"
-                _allIdeasLoading.value = false
+                _fetchAllIdeasState.value = FetchAllIdeasState(
+                    isLoading = false,
+                    isSuccess = null,
+                    isError = e.message ?: "Failed to fetch ideas"
+                )
             }
         }
     }
 
-    fun searchIdeas(query: String, userId: String) {
-        viewModelScope.launch {
+    // ==================== SEARCH & FILTER IDEAS ====================
+
+    fun searchIdeas(query: String) {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 if (query.isBlank()) {
-                    // If search is empty, fetch all ideas
-                    fetchAllIdeas(userId)
+                    _allIdeas.value = _fetchAllIdeasState.value.isSuccess ?: emptyList()
                 } else {
-                    // Filter ideas by title or description containing query
-                    val filteredIdeas = _allIdeas.value.filter { idea ->
+                    val filteredIdeas = (_fetchAllIdeasState.value.isSuccess ?: emptyList()).filter { idea ->
                         idea.ideaTitle.contains(query, ignoreCase = true) ||
                         idea.description.contains(query, ignoreCase = true)
                     }
@@ -416,10 +456,28 @@ class MyViewModel @Inject constructor(
         }
     }
 
-    fun filterIdeasByDate(startDate: Long?, endDate: Long?) {
-        viewModelScope.launch {
+    fun filterIdeasByDifficulty(difficulty: String) {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val filtered = _allIdeas.value.filter { idea ->
+                if (difficulty.isEmpty()) {
+                    _allIdeas.value = _fetchAllIdeasState.value.isSuccess ?: emptyList()
+                } else {
+                    val filtered = (_fetchAllIdeasState.value.isSuccess ?: emptyList()).filter { idea ->
+                        idea.difficulty.equals(difficulty, ignoreCase = true)
+                    }
+                    _allIdeas.value = filtered
+                    android.util.Log.d("MyViewModel", "Difficulty filter found ${filtered.size} ideas")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MyViewModel", "Error filtering by difficulty", e)
+            }
+        }
+    }
+
+    fun filterIdeasByDate(startDate: Long?, endDate: Long?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val filtered = (_fetchAllIdeasState.value.isSuccess ?: emptyList()).filter { idea ->
                     val ideaTime = idea.createdAt
                     val afterStart = startDate == null || ideaTime >= startDate
                     val beforeEnd = endDate == null || ideaTime <= endDate
@@ -466,7 +524,6 @@ data class FetchUserDataState(
     val isError: String? = null
 )
 
-
 data class SignOutState(
     val isSuccess: Boolean,
     val isError: String? = null,
@@ -479,7 +536,31 @@ data class UpdateUserState(
     val isError: String? = null
 )
 
+data class SaveSkillState(
+    val isLoading: Boolean = false,
+    val isSuccess: UserSkillEntity? = null,
+    val isError: String? = null
+)
+
 data class GenerateIdeaState(
+    val isLoading: Boolean = false,
+    val isSuccess: List<IdeaEntity>? = null,
+    val isError: String? = null
+)
+
+data class SaveIdeaState(
+    val isLoading: Boolean = false,
+    val isSuccess: IdeaEntity? = null,
+    val isError: String? = null
+)
+
+data class FetchIdeaByIdState(
+    val isLoading: Boolean = false,
+    val isSuccess: IdeaEntity? = null,
+    val isError: String? = null
+)
+
+data class FetchAllIdeasState(
     val isLoading: Boolean = false,
     val isSuccess: List<IdeaEntity>? = null,
     val isError: String? = null

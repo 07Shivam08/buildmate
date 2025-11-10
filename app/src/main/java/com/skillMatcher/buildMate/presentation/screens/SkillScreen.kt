@@ -71,12 +71,12 @@ fun SkillScreen(
     
     // ViewModel states
     val generateIdeaState = viewModel.generateIdeaState.collectAsState()
-    val lastGeneratedIdeaId = viewModel.lastGeneratedIdeaId.collectAsState()
+    val currentIdea = viewModel.currentIdea.collectAsState()
 
-    LaunchedEffect(lastGeneratedIdeaId.value) {
-        if (lastGeneratedIdeaId.value > 0) {
-            android.util.Log.d("SkillScreen", "Last generated ideaId: ${lastGeneratedIdeaId.value}, navigating to IdeaScreen...")
-            navController.navigate(Routes.IdeaScreenRoutes(ideaId = lastGeneratedIdeaId.value))
+    LaunchedEffect(currentIdea.value) {
+        if (currentIdea.value != null && currentIdea.value!!.ideaId > 0) {
+            android.util.Log.d("SkillScreen", "Current idea ID: ${currentIdea.value?.ideaId}, navigating to IdeaScreen...")
+            navController.navigate(Routes.IdeaScreenRoutes(ideaId = currentIdea.value!!.ideaId))
         }
     }
 
@@ -145,7 +145,7 @@ fun SkillScreen(
                     item {
                         ErrorBanner(
                             message = generateIdeaState.value.isError ?: "Unknown error",
-                            onDismiss = { viewModel.resetIdeaState() }
+                            onDismiss = { viewModel.resetGenerateIdeaState() }
                         )
                     }
                 }
@@ -296,9 +296,9 @@ fun SkillScreen(
                                         additionalNotesState.value else null
                                 )
                                 
-                                // Insert skill into database
+                                // Save skill to database
                                 // This will automatically trigger idea generation after skill is saved
-                                viewModel.insertSkill(skill)
+                                viewModel.saveSkill(skill)
                             }
                         },
                         modifier = Modifier

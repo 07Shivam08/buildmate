@@ -2,6 +2,7 @@ package com.skillMatcher.buildMate.data.repoImplementation
 
 import android.util.Log
 import com.skillMatcher.buildMate.data.dao.IdeaDao
+import com.skillMatcher.buildMate.data.dao.UserSkillDao
 import com.skillMatcher.buildMate.data.entities.IdeaEntity
 import com.skillMatcher.buildMate.data.entities.UserSkillEntity
 import com.skillMatcher.buildMate.data.remote.GeminiApiService
@@ -16,6 +17,7 @@ import javax.inject.Named
 class IdeaRepositoryImpl @Inject constructor(
     private val geminiApi: GeminiApiService,
     private val ideaDao: IdeaDao,
+    private val userSkillDao: UserSkillDao,
     @Named("GEMINI_API_KEY") private val apiKey: String
 ) : IdeaRepository
 {
@@ -143,6 +145,18 @@ class IdeaRepositoryImpl @Inject constructor(
             rowId
         } catch (e: Exception) {
             Log.e(TAG, "Error saving idea", e)
+            throw e
+        }
+    }
+
+    override suspend fun saveSkill(skill: UserSkillEntity): Long {
+        return try {
+            Log.d(TAG, "Saving skill: ${skill.techStack}")
+            val rowId = userSkillDao.insertUserSkill(skill)
+            Log.d(TAG, "Skill saved successfully with ID: $rowId")
+            rowId
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving skill", e)
             throw e
         }
     }

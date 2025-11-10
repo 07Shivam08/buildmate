@@ -65,8 +65,9 @@ fun GetAllIdeaScreen(
     firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
 ) {
     val allIdeas = viewModel.allIdeas.collectAsState()
-    val isLoading = viewModel.allIdeasLoading.collectAsState()
-    val error = viewModel.allIdeasError.collectAsState()
+    val fetchState = viewModel.fetchAllIdeasState.collectAsState()
+    val isLoading = fetchState.value.isLoading
+    val error = fetchState.value.isError
     
     val searchQuery = remember { mutableStateOf("") }
     val showDateFilter = remember { mutableStateOf(false) }
@@ -127,7 +128,7 @@ fun GetAllIdeaScreen(
                 value = searchQuery.value,
                 onValueChange = { 
                     searchQuery.value = it
-                    viewModel.searchIdeas(it, userId)
+                    viewModel.searchIdeas(it)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -142,7 +143,7 @@ fun GetAllIdeaScreen(
 
             // Ideas List
             when {
-                isLoading.value -> {
+                isLoading -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -153,13 +154,13 @@ fun GetAllIdeaScreen(
                         )
                     }
                 }
-                error.value != null -> {
+                error != null -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Error: ${error.value}",
+                            text = "Error: $error",
                             style = TextStyle(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium,

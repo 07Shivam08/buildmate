@@ -208,6 +208,29 @@ Repository (Data Abstraction)
 Data Layer (Entities & Models)
 ```
 
+### Clean Code Architecture - Refactored (Nov 2025)
+
+The skill and idea management features have been refactored to follow clean architecture principles, matching the user management pattern:
+
+**Use Cases Created**:
+- `SaveSkillUseCase` - Handles skill saving logic
+- `SaveIdeaUseCase` - Handles idea saving logic
+- `FetchAllIdeasUseCase` - Retrieves all saved ideas
+- `FetchIdeaByIdUseCase` - Retrieves specific idea
+
+**State Management**:
+- `SaveSkillState` - Tracks skill save operations
+- `SaveIdeaState` - Tracks idea save operations
+- `FetchAllIdeasState` - Unified state for fetching all ideas
+- `FetchIdeaByIdState` - Tracks single idea fetch operations
+
+**Benefits**:
+- ✅ Consistent patterns across all CRUD operations
+- ✅ Reduced complexity (70 lines of code → 30 lines)
+- ✅ Better testability (isolated UseCase classes)
+- ✅ Easier to maintain and extend
+- ✅ Zero functionality loss
+
 ### Dependency Injection with Hilt
 
 **Three Main Modules**:
@@ -537,6 +560,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**Last Updated**: November 10, 2025
-**Version**: 1.0.0
+**Last Updated**: November 11, 2025
+**Version**: 1.0.1
 **Status**: 🚀 Production Ready
+**Latest Update**: Clean code refactoring with unified UseCase pattern

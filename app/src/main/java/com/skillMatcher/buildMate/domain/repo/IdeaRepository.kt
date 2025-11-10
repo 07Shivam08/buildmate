@@ -6,6 +6,7 @@ import com.skillMatcher.buildMate.utils.ResultState
 
 interface IdeaRepository {
     suspend fun generateIdeasFromSkill(skill: UserSkillEntity): ResultState<List<IdeaEntity>>
+    suspend fun saveSkill(skill: UserSkillEntity): Long  // Returns the ID of the saved skill
     suspend fun saveIdea(idea: IdeaEntity): Long  // Returns the ID of the saved idea
     suspend fun getAllIdeas(userId: String): List<IdeaEntity>
     suspend fun getIdeasByIdeaId(userId: String, ideaId: Int): List<IdeaEntity>
