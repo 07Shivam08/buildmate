@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "411542220991",
+    "firebase_url": "https://textile-truce-default-rtdb.firebaseio.com",
+    "project_id": "textile-truce",
+    "storage_bucket": "textile-truce.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:411542220991:android:05c27854da2dde5c2e560a",
+        "android_client_info": {
+          "package_name": "com.skillMatcher.buildMate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2BVO_pnAteYg4vgTUFVHra5SFh7EsxZY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:411542220991:android:e8ba4c3d472692b92e560a",
+        "android_client_info": {
+          "package_name": "com.example.textile_truce"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2BVO_pnAteYg4vgTUFVHra5SFh7EsxZY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
