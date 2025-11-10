@@ -13,6 +13,7 @@ firebaseAuth = "24.0.1"
 firebaseStorage = "22.0.1"
 adapters = "3.2.0-alpha11"
 firebaseFirestore = "26.0.2"
+coil = "3.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,6 +35,7 @@ firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage", version.ref = "firebaseStorage" }
 androidx-adapters = { group = "androidx.databinding", name = "adapters", version.ref = "adapters" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

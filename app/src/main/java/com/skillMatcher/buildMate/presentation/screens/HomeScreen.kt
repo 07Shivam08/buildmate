@@ -40,20 +40,9 @@ import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.skillMatcher.buildMate.R
 import com.skillMatcher.buildMate.presentation.nav.Routes
+import com.skillMatcher.buildMate.ui.theme.PoppinsFontFamily
+import com.skillMatcher.buildMate.ui.theme.SoraFontFamily
 import com.skillMatcher.buildMate.viewmodel.MyViewModel
-
-// Custom Font Family
-val PoppinsFontFamily = FontFamily(
-    Font(R.font.poppins_regular, FontWeight.Normal),
-    Font(R.font.poppins_medium, FontWeight.W500),
-    Font(R.font.poppins_semibold, FontWeight.W600),
-    Font(R.font.poppins_bold, FontWeight.Bold),
-    Font(R.font.poppins_light, FontWeight.Light),
-)
-
-val SoraFontFamily = FontFamily(
-    Font(R.font.sora_semibold, FontWeight.SemiBold),
-)
 
 @Composable
 fun HomeScreen(

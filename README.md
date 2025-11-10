@@ -16,7 +16,11 @@
 - [Architecture](#-architecture)
 - [API Integration](#-api-integration)
 - [Database Schema](#-database-schema)
-- [Error Handling](#-error-handling)
+- [Profile Image Persistence](#-profile-image-persistence-v11---nov-2025)
+- [Error Handling](#️-error-handling)
+- [Security Best Practices](#-security-best-practices)
+- [Usage Guide](#-usage-guide)
+- [Testing](#-testing)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -29,6 +33,9 @@
 - **Smooth Navigation** - Type-safe navigation with Compose Navigation
 - **Responsive Design** - Works on all screen sizes and orientations
 - **Real-time Loading States** - Visual feedback during API calls
+- **Profile Image Upload** - Beautiful circular profile image with camera overlay
+- **Update Details** - Edit user information with validation
+- **Delete Account** - Account management with confirmation dialog
 
 ### 🤖 AI-Powered Features
 - **Idea Generation** - Get project ideas based on your tech stack and goals
@@ -41,12 +48,14 @@
 - **User Authentication** - Firebase Authentication with UID tracking
 - **Persistent Storage** - Ideas saved locally and sync with Firestore
 - **Search & Filter** - Find saved ideas easily
+- **Profile Image Persistence** - Profile images saved to internal storage (survives app closure)
 
 ### 🔐 Security
 - **Secure Credentials** - API keys stored in .env (not in git)
 - **User Isolation** - Each user's data is isolated by Firebase UID
 - **Encrypted Storage** - Room database with encryption support
 - **No Hardcoded Secrets** - BuildConfig injection for API keys
+- **App Private Storage** - Profile images stored in secure app directory
 
 ---
 
@@ -119,6 +128,13 @@ MyApplication/
 - **Retrofit** - HTTP client for REST API calls
 - **OkHttp** - HTTP interceptor with logging
 - **Gson** - JSON serialization/deserialization
+- **Coil** - Image loading library for profile pictures
+
+### Image Handling
+- **Coil** - Efficient image loading and caching
+- **AsyncImage** - Compose-native image display
+- **Internal Storage** - App-private file storage for profile images
+- **File I/O** - Persistent image copying to internal storage
 
 ### Build & Development
 - **Kotlin** - Modern Android programming language
@@ -432,6 +448,28 @@ Missing Skill ID → "Cannot generate ideas without saving skill first"
 3. Filter by difficulty level
 4. View idea details by clicking
 
+### Profile Screen (New - v1.1)
+1. **View Profile** - Circular profile image with user info
+2. **Upload Profile Image**
+   - Click profile image area or camera button
+   - Select image from gallery
+   - Image displays immediately in circular format
+   - Image persists even after closing app ✅
+3. **User Information Display**
+   - Name (from Firebase)
+   - Email (from Firebase Auth)
+   - Account Type (Premium/Free)
+   - Member Since date
+4. **Update Personal Details**
+   - Click "Update Personal Details" button
+   - Edit name and email
+   - Validates non-empty fields
+   - Auto-refreshes on successful update
+5. **Account Management**
+   - Sign Out - Safely logout and navigate to login screen
+   - Delete Account - Permanently delete account with confirmation
+   - Both include loading indicators and error messages
+
 ---
 
 ## 🧪 Testing
@@ -499,7 +537,97 @@ Contributions are welcome! Here's how:
 
 ---
 
-## 📝 License
+## � Profile Image Persistence (v1.1 - Nov 2025)
+
+### Overview
+Profile images are now **permanently persisted** to the app's internal storage, surviving app closure, force stop, and device restart.
+
+### How It Works
+1. **Image Selection**: User selects image from gallery via `ActivityResultContracts.GetContent()`
+2. **File Copy**: Image is copied from gallery to `/data/data/com.skillMatcher.buildMate/files/profile_image.jpg`
+3. **Permanent Storage**: File remains even after app closes
+4. **Auto-Load**: On app restart, image is loaded from internal storage
+5. **Display**: Coil's `AsyncImage` renders the image in circular format
+
+### Technical Implementation
+
+#### Image Picker Launcher
+```kotlin
+val imagePickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.GetContent()
+) { uri: Uri? ->
+    if (uri != null) {
+        val savedUri = context.copyImageToAppStorage(uri)
+        if (savedUri != null) {
+            profileImageUri.value = savedUri
+        }
+    }
+}
+```
+
+#### Copy to App Storage
+```kotlin
+fun Context.copyImageToAppStorage(sourceUri: Uri): Uri? {
+    return try {
+        val inputStream = contentResolver.openInputStream(sourceUri)
+        if (inputStream != null) {
+            val file = File(filesDir, "profile_image.jpg")
+            inputStream.use { input ->
+                file.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Uri.fromFile(file)
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+```
+
+#### Load on Startup
+```kotlin
+fun Context.getProfileImageUri(): Uri? {
+    return try {
+        val file = File(filesDir, "profile_image.jpg")
+        if (file.exists()) Uri.fromFile(file) else null
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+```
+
+### Storage Details
+- **Location**: `/data/data/com.skillMatcher.buildMate/files/profile_image.jpg`
+- **Access**: App private (no other app can read)
+- **Persistence**: Survives until manually deleted or app uninstalled
+- **Automatic Cleanup**: File is deleted when app is uninstalled
+
+### Why Gallery URIs Don't Work
+Gallery content URIs (`content://media/...`) have **temporary permissions**:
+- Valid only while app is running
+- Permission revoked when app closes
+- Becomes inaccessible on app restart
+- This is why we copy to internal storage
+
+### User Experience
+| Action | Result |
+|--------|--------|
+| Select image | Image displays immediately ✅ |
+| Navigate away | Image persists ✅ |
+| Close app | Image saved to storage ✅ |
+| Reopen app | Image auto-loads ✅ |
+| Force stop | Image still there ✅ |
+| Change image | New replaces old ✅ |
+| Uninstall | Image auto-deleted ✅ |
+
+---
+
+## �📝 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
@@ -561,6 +689,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **Last Updated**: November 11, 2025
-**Version**: 1.0.1
+**Version**: 1.1
 **Status**: 🚀 Production Ready
-**Latest Update**: Clean code refactoring with unified UseCase pattern
+**Latest Update**: Profile Screen with image persistence and account management features
